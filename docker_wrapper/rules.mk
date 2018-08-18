@@ -20,7 +20,8 @@ DW_SHARE_DIR:=/share
 
 define docker_wrapper
 	@docker rm $1 -f > /dev/null 2>&1 || :
-	docker run -d $(if $(CI),,-v $(DW_HOST_DIR):$(DW_SHARE_DIR)) -it --name $1 $2
+	xhost + 127.0.0.1
+	docker run -e DISPLAY=docker.for.mac.localhost:0 -d $(if $(CI),,-v $(DW_HOST_DIR):$(DW_SHARE_DIR)) -it --name $1 $2
 	$(if $(CI),docker cp $(DW_HOST_DIR) $1:$(DW_SHARE_DIR))
 	docker exec $1 sh -c "cd /share$(DW_RELATIVE_DIR) && $3"
 	@echo ""
