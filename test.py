@@ -19,7 +19,7 @@ class FocusManager:
         self.textbox.setText(text)
 
 
-class Rect(QGraphicsItem):
+class Object(QGraphicsItem):
     def __init__(self, fm, w, h):
         QGraphicsItem.__init__(self)
         self.fm = fm
@@ -30,13 +30,16 @@ class Rect(QGraphicsItem):
         penWidth = 1.0
         return QRectF(-self.w / 2 - penWidth / 2, -self.h / 2 - penWidth / 2,
                              self.w + penWidth, self.h + penWidth)
+
+    def paint_sub(self, painter):
+        pass
     
     def paint(self, painter, option, widget):
-        painter.drawRect(-self.w / 2, -self.h / 2, self.w, self.h)
-        pen = QPen(Qt.red)
-        pen.setStyle(Qt.DotLine)
-        painter.setPen(pen)
+        self.paint_sub(painter)
         if fm.current == self:
+            pen = QPen(Qt.red)
+            pen.setStyle(Qt.DotLine)
+            painter.setPen(pen)
             painter.drawLine(QLineF(-self.w / 2, 0, self.w / 2, 0))
             painter.drawLine(QLineF(0, -self.h / 2, 0, self.h / 2))
 
@@ -56,7 +59,7 @@ class Rect(QGraphicsItem):
         self.cPos    = None
         self.pressedButton = None
         qApp.restoreOverrideCursor()
-        super(Rect, self).mouseReleaseEvent( event )
+        super(Object, self).mouseReleaseEvent( event )
         self.update()
         
     def mouseMoveEvent( self, event ):
@@ -75,6 +78,23 @@ class Rect(QGraphicsItem):
 
         fm.Focus(self, str(self.scenePos().x()) + ", " + str(self.scenePos().y()))
 
+class Rect(Object):
+    def __init__(self, fm, w, h):
+        Object.__init__(self, fm, w, h)
+
+    def paint_sub(self, painter):
+        painter.drawRect(-self.w / 2, -self.h / 2, self.w, self.h)
+
+class Text(Object):
+    def __init__(self, fm, text):
+        self.text = text
+        fm = QFontMetrics(QPainter().font())
+        w = fm.width(self.text)
+        h = fm.height()
+        Object.__init__(self, fm, w, h)
+
+    def paint_sub(self, painter):
+        painter.drawText(-self.w / 2, self.h / 2, self.text)
 
 class graphicView(QGraphicsView):
  
@@ -122,6 +142,14 @@ node.setPos(50, 50)
 widget.scene.addItem(node)
 
 node = Rect(fm, 100, 60)
+node.setPos(700, 140)
+widget.scene.addItem(node)
+
+node = Text(fm, "Fuga")
+node.setPos(200, 140)
+widget.scene.addItem(node)
+
+node = Text(fm, "hoge")
 node.setPos(700, 140)
 widget.scene.addItem(node)
 
