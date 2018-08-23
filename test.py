@@ -18,11 +18,39 @@ class FocusManager:
         self.current.update()
         self.textbox.setText(text)
 
+class OperationManager:
+    def __init__(self, gview):
+        self.move_button = gview.move_button
+        self.resize_button = gview.resize_button
+        self.rotate_button = gview.rotate_button
+        self.move_button.toggled.connect(self.move_button_toggled)
+        self.resize_button.toggled.connect(self.resize_button_toggled)
+        self.rotate_button.toggled.connect(self.rotate_button_toggled)
+
+    def move_button_toggled(self, checked):
+        if checked:
+            self.rotate_button.setChecked(False)
+            self.resize_button.setChecked(False)
+
+    def resize_button_toggled(self, checked):
+        if checked:
+            self.move_button.setChecked(False)
+            self.rotate_button.setChecked(False)
+
+    def rotate_button_toggled(self, checked):
+        if checked:
+            self.move_button.setChecked(False)
+            self.resize_button.setChecked(False)
+            
+class Managers:
+    def __init__(self, f, o):
+        self.f = f
+        self.o = o
 
 class Object(QGraphicsItem):
-    def __init__(self, fm, w, h):
+    def __init__(self, m, w, h):
         QGraphicsItem.__init__(self)
-        self.fm = fm
+        self.m = m
         self.w = w
         self.h = h
     
@@ -36,62 +64,73 @@ class Object(QGraphicsItem):
     
     def paint(self, painter, option, widget):
         self.paint_sub(painter)
-        if fm.current == self:
-            pen = QPen(Qt.red)
-            pen.setStyle(Qt.DotLine)
-            painter.setPen(pen)
-            painter.drawLine(QLineF(-self.w / 2, 0, self.w / 2, 0))
-            painter.drawLine(QLineF(0, -self.h / 2, 0, self.h / 2))
+        if self.m.f.current == self:
+            pass
+            #pen = QPen(Qt.red)
+            #pen.setStyle(Qt.DotLine)
+            #painter.setPen(pen)
+            #painter.drawLine(QLineF(-self.w / 2, 0, self.w / 2, 0))
+            #painter.drawLine(QLineF(0, -self.h / 2, 0, self.h / 2))
 
     def mousePressEvent( self, event ):
         self.cPos    = event.scenePos()
-        self.pressedButton = event.button()
-  
-        if self.pressedButton == Qt.RightButton:
-            cursorShape = Qt.SizeAllCursor
-        else:
-            cursorShape = Qt.ClosedHandCursor
-        qApp.setOverrideCursor(QCursor(cursorShape))
 
-        fm.Focus(self, str(self.scenePos().x()) + "," + str(self.scenePos().y()))
+        self.m.f.Focus(self, str(self.scenePos().x()) + "," + str(self.scenePos().y()))
  
     def mouseReleaseEvent( self, event ):
         self.cPos    = None
-        self.pressedButton = None
-        qApp.restoreOverrideCursor()
         super(Object, self).mouseReleaseEvent( event )
         self.update()
         
     def mouseMoveEvent( self, event ):
-        if not self.cPos:
-            return
+        if self.m.o.move_button.isChecked():
+            if not self.cPos:
+                return
 
-        # 描画位置を変更
-        cur = event.scenePos()
-        value = cur - self.cPos
-        self.cPos = cur
-        transform = self.transform()
-        transform *= QTransform().translate( value.x(), value.y() )
+            # 描画位置を変更
+            cur = event.scenePos()
+            value = cur - self.cPos
+            self.cPos = cur
+            transform = self.transform()
+            transform *= QTransform().translate( value.x(), value.y() )
  
-        # 変更を適用
-        self.setTransform(transform)
+            # 変更を適用
+            self.setTransform(transform)
 
-        fm.Focus(self, str(self.scenePos().x()) + ", " + str(self.scenePos().y()))
-
+            self.m.f.Focus(self, str(self.scenePos().x()) + ", " + str(self.scenePos().y()))
+        
 class Rect(Object):
-    def __init__(self, fm, w, h):
-        Object.__init__(self, fm, w, h)
+    def __init__(self, m, w, h):
+        Object.__init__(self, m, w, h)
 
     def paint_sub(self, painter):
         painter.drawRect(-self.w / 2, -self.h / 2, self.w, self.h)
 
+class Triangle(Object):
+    def __init__(self, m, w, h):
+        Object.__init__(self, m, w, h)
+
+    def paint_sub(self, painter):
+        painter.setBrush(Qt.SolidPattern)
+        painter.drawPolygon([QPointF(self.w / 2, self.h / 2), QPointF(0, -self.h / 2), QPointF(-self.w / 2, self.h / 2)])
+
+class Arrow(Object):
+    def __init__(self, m, l):
+        Object.__init__(self, m, 4, l)
+        self.l = l
+
+    def paint_sub(self, painter):
+        painter.setBrush(Qt.SolidPattern)
+        painter.drawPolygon([QPointF(2, -self.l / 2 + 8), QPointF(0, -self.l / 2), QPointF(-2, -self.l / 2 + 8)])
+        painter.drawLine(QLineF(0, -self.l / 2, 0, self.l / 2))
+
 class Text(Object):
-    def __init__(self, fm, text):
+    def __init__(self, m, text):
         self.text = text
         fm = QFontMetrics(QPainter().font())
         w = fm.width(self.text)
         h = fm.height()
-        Object.__init__(self, fm, w, h)
+        Object.__init__(self, m, w, h)
 
     def paint_sub(self, painter):
         painter.drawText(-self.w / 2, self.h / 2, self.text)
@@ -113,8 +152,23 @@ class graphicView(QGraphicsView):
         self.scene.setSceneRect(rect)
 
         self.textbox = QLineEdit(self)
-        self.textbox.move(0, self.h)
-        self.textbox.resize(self.w, 24)
+        self.textbox.move(150, self.h)
+        self.textbox.resize(self.w-150, 24)
+
+        self.move_button = QPushButton('M', self)
+        self.move_button.move(0, self.h)
+        self.move_button.resize(50, 24)
+        self.move_button.setCheckable(True)
+
+        self.resize_button = QPushButton('S', self)
+        self.resize_button.move(50, self.h)
+        self.resize_button.resize(50, 24)
+        self.resize_button.setCheckable(True)
+
+        self.rotate_button = QPushButton('R', self)
+        self.rotate_button.move(100, self.h)
+        self.rotate_button.resize(50, 24)
+        self.rotate_button.setCheckable(True)
 
     def out(self):
         svg_gen = QSvgGenerator()
@@ -137,19 +191,31 @@ widget = graphicView(800, 200)
 
 fm = FocusManager(widget)
 
-node = Rect(fm, 200, 20)
+om = OperationManager(widget)
+
+m = Managers(fm, om)
+
+node = Rect(m, 200, 20)
 node.setPos(50, 50)
 widget.scene.addItem(node)
 
-node = Rect(fm, 100, 60)
+node = Rect(m, 100, 60)
 node.setPos(700, 140)
 widget.scene.addItem(node)
 
-node = Text(fm, "Fuga")
+node = Triangle(m, 4, 8)
+node.setPos(500, 140)
+widget.scene.addItem(node)
+
+node = Arrow(m, 100)
+node.setPos(300, 100)
+widget.scene.addItem(node)
+
+node = Text(m, "Fuga")
 node.setPos(200, 140)
 widget.scene.addItem(node)
 
-node = Text(fm, "hoge")
+node = Text(m, "hoge")
 node.setPos(700, 140)
 widget.scene.addItem(node)
 
